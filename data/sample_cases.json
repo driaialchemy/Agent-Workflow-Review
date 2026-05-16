@@ -1,0 +1,17 @@
+[
+  {
+    "id": "case_001",
+    "title": "Automated Invoice Processing Pipeline",
+    "proposal": "We want to automate our invoice processing workflow using a scheduled batch pipeline. The system will extract data from PDF invoices, validate against our ERP, and trigger payments. It includes automated tests, a rollback plan, audit trail logging, human review for amounts over $10,000, and staged rollout. Cost reduction and efficiency gain are primary goals. Compliant with SOX requirements."
+  },
+  {
+    "id": "case_002",
+    "title": "Autonomous Customer Email Responder",
+    "proposal": "Deploy an autonomous AI agent that will handle all customer emails without human oversight. The system will make financial decisions, respond to complaints, and process refunds automatically. No human in the loop, no guardrails, no logging. Uses sensitive personal data and PII. Single server, no backup or redundancy."
+  },
+  {
+    "id": "case_003",
+    "title": "Internal Knowledge Base Chatbot",
+    "proposal": "Build a modular, API-driven internal chatbot to help employees search the knowledge base. It will be documented, tested with automated tests, deployed via CI/CD pipeline with a staged rollout. Improves user experience and efficiency. Scalable microservice architecture. No sensitive data involved."
+  }
+]
