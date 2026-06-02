@@ -18,6 +18,7 @@ ENV/
 # Secrets — never commit these
 .env
 .env.*
+!.env.example
 secrets.json
 *.key
 *.pem
