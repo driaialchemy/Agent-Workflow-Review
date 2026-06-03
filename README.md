@@ -37,8 +37,8 @@ risk/value scores, decision agreement, and high-risk rejection flags.
 ## Installation
 
 ```powershell
-git clone https://github.com/driaialchemy/2testingofsoftwareengineering.git
-cd 2testingofsoftwareengineering
+git clone https://github.com/driaialchemy/Agent-Workflow-Review.git
+cd Agent-Workflow-Review
 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
