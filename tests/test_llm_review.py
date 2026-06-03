@@ -98,6 +98,54 @@ def test_review_with_llms_uses_configured_provider(monkeypatch):
     assert result["arbiter"]["review_count"] == 1
 
 
+def test_google_request_uses_json_schema(monkeypatch):
+    captured = {}
+
+    def fake_post_json(url, headers, payload, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        captured["timeout"] = timeout
+        return {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": (
+                                    '{"decision":"REVISE","risk_score":5,'
+                                    '"value_score":6,"confidence":0.7,'
+                                    '"rationale":"Needs cleanup.",'
+                                    '"top_risks":["Risk"],'
+                                    '"top_values":["Value"],'
+                                    '"required_changes":["Change"]}'
+                                )
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(llm_review, "_post_json", fake_post_json)
+
+    text = llm_review._call_google(
+        "test-key",
+        "gemini-2.5-flash",
+        "Review this proposal.",
+        30,
+    )
+
+    generation_config = captured["payload"]["generationConfig"]
+    assert captured["url"].startswith("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash")
+    assert captured["payload"]["systemInstruction"]["parts"][0]["text"] == llm_review.SYSTEM_PROMPT
+    assert generation_config["thinkingConfig"]["thinkingBudget"] == 0
+    assert generation_config["responseMimeType"] == "application/json"
+    assert generation_config["responseSchema"]["type"] == "OBJECT"
+    assert "required_changes" in generation_config["responseSchema"]["required"]
+    assert "REVISE" in text
+
+
 def test_arbiter_approves_when_reviews_converge_on_low_risk_high_value():
     result = llm_review.arbitrate_reviews(
         _baseline("APPROVE", 2.5, 7.0, 0.8),

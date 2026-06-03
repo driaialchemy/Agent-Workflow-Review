@@ -68,6 +68,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 GOOGLE_MODEL=gemini-2.5-flash
 
 LLM_REVIEW_TIMEOUT_SECONDS=45
+GOOGLE_THINKING_BUDGET=0
 ```
 
 Notes:
@@ -75,6 +76,7 @@ Notes:
 - `.env` is ignored by git. Do not commit real API keys.
 - You can configure one, two, or all three providers.
 - `GEMINI_API_KEY` is also accepted as a fallback for Google.
+- Gemini 2.5 thinking is disabled by default for short JSON reviews. Set `GOOGLE_THINKING_BUDGET` higher only if you want deeper Gemini reasoning.
 - LLM reviewers can create API costs. They only run when you enable the sidebar checkbox.
 
 ## Run The App

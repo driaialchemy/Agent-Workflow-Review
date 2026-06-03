@@ -72,7 +72,71 @@ Return JSON only, with this exact shape:
   "top_values": ["value one", "value two"],
   "required_changes": ["change one", "change two"]
 }
+
+Keep each rationale, risk, value, and required change concise. Use no more than
+three items per list.
 """.strip()
+
+REVIEW_RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "decision": {
+            "type": "STRING",
+            "enum": ["APPROVE", "REVISE", "REJECT"],
+        },
+        "risk_score": {
+            "type": "NUMBER",
+            "minimum": 0,
+            "maximum": 10,
+        },
+        "value_score": {
+            "type": "NUMBER",
+            "minimum": 0,
+            "maximum": 10,
+        },
+        "confidence": {
+            "type": "NUMBER",
+            "minimum": 0,
+            "maximum": 1,
+        },
+        "rationale": {"type": "STRING"},
+        "top_risks": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "maxItems": 3,
+        },
+        "top_values": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "maxItems": 3,
+        },
+        "required_changes": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "maxItems": 3,
+        },
+    },
+    "required": [
+        "decision",
+        "risk_score",
+        "value_score",
+        "confidence",
+        "rationale",
+        "top_risks",
+        "top_values",
+        "required_changes",
+    ],
+    "propertyOrdering": [
+        "decision",
+        "risk_score",
+        "value_score",
+        "confidence",
+        "rationale",
+        "top_risks",
+        "top_values",
+        "required_changes",
+    ],
+}
 
 
 class ProviderError(RuntimeError):
@@ -371,17 +435,16 @@ def _call_google(key: str, model: str, prompt: str, timeout: int) -> str:
         f"{quote(model_name, safe='/')}:generateContent?key={quote(key)}"
     )
     payload = {
+        "systemInstruction": {
+            "parts": [{"text": SYSTEM_PROMPT}],
+        },
         "contents": [
             {
                 "role": "user",
-                "parts": [{"text": f"{SYSTEM_PROMPT}\n\n{prompt}"}],
+                "parts": [{"text": prompt}],
             }
         ],
-        "generationConfig": {
-            "temperature": 0.2,
-            "maxOutputTokens": 1200,
-            "responseMimeType": "application/json",
-        },
+        "generationConfig": _google_generation_config(model),
     }
     data = _post_json(url, {"Content-Type": "application/json"}, payload, timeout)
 
@@ -394,6 +457,23 @@ def _call_google(key: str, model: str, prompt: str, timeout: int) -> str:
     if text:
         return text
     raise ProviderError("Google response did not include text output")
+
+
+def _google_generation_config(model: str) -> dict[str, Any]:
+    config = {
+        "candidateCount": 1,
+        "temperature": 0.1,
+        "maxOutputTokens": 2048,
+        "responseMimeType": "application/json",
+        "responseSchema": REVIEW_RESPONSE_SCHEMA,
+    }
+
+    # Gemini 2.5 models think by default. For short structured reviews, that can
+    # consume the token budget and truncate the visible JSON object.
+    if "2.5" in model:
+        config["thinkingConfig"] = {"thinkingBudget": _google_thinking_budget()}
+
+    return config
 
 
 def _post_json(
@@ -450,6 +530,14 @@ def _timeout_seconds() -> int:
         return max(5, min(180, int(raw)))
     except ValueError:
         return 45
+
+
+def _google_thinking_budget() -> int:
+    raw = os.getenv("GOOGLE_THINKING_BUDGET", "0")
+    try:
+        return max(-1, min(24576, int(raw)))
+    except ValueError:
+        return 0
 
 
 def _number(value: Any, default: float, low: float, high: float) -> float:
