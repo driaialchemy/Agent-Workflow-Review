@@ -40,3 +40,7 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local runtime output and notes
+outputs/audit_log.json
+comparison*.md
