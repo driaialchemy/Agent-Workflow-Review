@@ -5,6 +5,25 @@ baseline and optional LLM reviewers from OpenAI, Anthropic, and Google. The LLM
 review path is off by default and only runs when API keys are configured and the
 sidebar checkbox is enabled.
 
+## For A Novice Reader
+
+Think of this app as a review board for AI project ideas. You paste in a proposed
+AI workflow, and the app tells you whether the idea looks ready to approve, needs
+revision, or should be rejected because the risk is too high.
+
+The app can work completely locally with fixed scoring rules. If API keys are
+configured, you can also ask outside AI models to act like additional reviewers,
+then compare their opinions with the local baseline.
+
+## For A Technical Reader
+
+The app is a Streamlit workflow-review tool with deterministic risk/value agents,
+a threshold-based decision synthesizer, optional structured LLM reviewer calls,
+and a local arbiter. The deterministic path is testable and API-free. The LLM
+path accepts OpenAI, Anthropic, and Google credentials through ignored `.env`
+configuration, parses structured reviews, and records review outcomes to a local
+audit log for traceability.
+
 ## What It Does
 
 You paste an AI workflow proposal into the app. The board evaluates it with:
