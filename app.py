@@ -238,6 +238,13 @@ if run_review and proposal_text.strip():
         "llm_review": llm_package,
     }
     append_audit_log(audit_entry)
+    from governance_logger import log_success
+    log_success("Agent-Workflow-Review", "Agent completed successfully", {
+        "decision": final_result.get("decision"),
+        "risk_score": final_result.get("risk_score"),
+        "value_score": final_result.get("value_score"),
+        "result": final_result
+    })
     st.caption("Review appended to outputs/audit_log.json")
 
 
