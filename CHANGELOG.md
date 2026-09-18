@@ -1,0 +1,2 @@
+- Wire existing synthesizer `confidence` (0–1) through `require_approval` into POST /agents/:id/activity.
+- P3: proposals with risk below AUTO_CLEAR_RISK_THRESHOLD auto-approve and skip the review queue; audit log schema unchanged.
