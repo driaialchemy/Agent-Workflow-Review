@@ -185,13 +185,17 @@ if run_review and proposal_text.strip():
     with st.spinner("Running deterministic agents..."):
         risk_result = risk_agent.evaluate(proposal_text)
         value_result = value_agent.evaluate(proposal_text)
-        synthesis = decision_synthesizer.synthesize(risk_result, value_result)
+        if decision_synthesizer.should_auto_clear(risk_result):
+            synthesis = decision_synthesizer.auto_clear_decision(risk_result, value_result)
+        else:
+            synthesis = decision_synthesizer.synthesize(risk_result, value_result)
 
     llm_package = None
     final_result = synthesis
     decision_source = "deterministic_baseline"
+    skip_review_queue = decision_synthesizer.should_auto_clear(risk_result)
 
-    if use_llm_review:
+    if use_llm_review and not skip_review_queue:
         with st.spinner("Running LLM reviewers..."):
             llm_package = llm_review.review_with_llms(proposal_text, synthesis)
         final_result = llm_package["arbiter"]
@@ -238,13 +242,18 @@ if run_review and proposal_text.strip():
         "llm_review": llm_package,
     }
     append_audit_log(audit_entry)
-    from governance_logger import log_success
-    log_success("Agent-Workflow-Review", "Agent completed successfully", {
-        "decision": final_result.get("decision"),
-        "risk_score": final_result.get("risk_score"),
-        "value_score": final_result.get("value_score"),
-        "result": final_result
-    })
+    from governance_logger import require_approval
+    require_approval(
+        "Agent-Workflow-Review",
+        "Agent completed successfully",
+        {
+            "decision": final_result.get("decision"),
+            "risk_score": final_result.get("risk_score"),
+            "value_score": final_result.get("value_score"),
+            "result": final_result,
+        },
+        confidence=final_result.get("confidence"),
+    )
     st.caption("Review appended to outputs/audit_log.json")
 
 

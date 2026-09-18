@@ -10,6 +10,22 @@ REJECT_RISK_THRESHOLD = 7.0       # overall risk >= this → leaning REJECT
 APPROVE_RISK_THRESHOLD = 4.0      # overall risk < this → can lean APPROVE
 APPROVE_VALUE_THRESHOLD = 5.0     # overall value >= this → helps APPROVE
 REVISE_VALUE_THRESHOLD = 3.0      # overall value < this → may lean REJECT
+AUTO_CLEAR_RISK_THRESHOLD = 4.0   # overall risk below this → auto-approve, skip review queue
+
+
+def should_auto_clear(risk_result: dict[str, Any]) -> bool:
+    return float(risk_result["overall_risk_score"]) < AUTO_CLEAR_RISK_THRESHOLD
+
+
+def auto_clear_decision(risk_result: dict[str, Any], value_result: dict[str, Any]) -> dict[str, Any]:
+    """Same decision schema as synthesize(); used for below-threshold auto-approve."""
+    return synthesize(risk_result, value_result) | {
+        "decision": "APPROVE",
+        "rationale": (
+            f"Risk score ({risk_result['overall_risk_score']}/10) is below the "
+            f"auto-clear threshold ({AUTO_CLEAR_RISK_THRESHOLD}). Auto-approved."
+        ),
+    }
 
 
 def synthesize(risk_result: dict[str, Any], value_result: dict[str, Any]) -> dict[str, Any]:
