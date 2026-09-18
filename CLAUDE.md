@@ -53,3 +53,10 @@ pytest
 ```
 
 Always run the verification command before claiming a task is complete.
+
+## Audit Remediation Notes
+
+- Audit path: $AuditFile
+- Risk level from audit: $risk.
+- Addressed audit issues: Risk level is MEDIUM, expected LOW.; Dependency manifests present: requirements.txt; Test suite present — actively developed project.
+
