@@ -53,7 +53,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install streamlit==1.56.0 pytest==8.4.2
 ```
 
 ## Run The App
@@ -89,7 +89,6 @@ Tests are deterministic and do not call external APIs.
 |   `-- test_agents.py
 |-- .env.example
 |-- .gitignore
-|-- requirements.txt
 `-- README.md
 ```
 

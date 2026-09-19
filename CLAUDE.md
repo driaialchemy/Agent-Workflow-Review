@@ -35,7 +35,7 @@ Local-first Streamlit app (Agent Review Board) that evaluates AI workflow propos
 ## Environment
 
 - **Language(s):** Python
-- **Build / install:** requirements.txt (`pip install -r requirements.txt`)
+- **Build / install:** `pip install streamlit==1.56.0 pytest==8.4.2`
 
 ## In-scope edit areas
 

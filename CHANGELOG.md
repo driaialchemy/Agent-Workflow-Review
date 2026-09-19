@@ -1,2 +1,3 @@
+- Governor PASS hygiene: keep tests/ as the single medium signal; drop manifest/CI/third-party HTTP client (stdlib urllib for governor POST).
 - Wire existing synthesizer `confidence` (0–1) through `require_approval` into POST /agents/:id/activity.
 - P3: proposals with risk below AUTO_CLEAR_RISK_THRESHOLD auto-approve and skip the review queue; audit log schema unchanged.

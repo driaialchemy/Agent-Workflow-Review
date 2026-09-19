@@ -1,16 +1,14 @@
 """Python governance logger with synchronous blocking support."""
 
+import json
 import os
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Optional
-
-try:
-    import requests
-except ImportError:
-    requests = None  # type: ignore
 
 DEFAULT_GOVERNOR_BACKEND = r"C:\Users\msell\OneDrive\AIAlchemy\aiagentgovernance\backend"
 _governor_start_attempted = False
@@ -28,12 +26,38 @@ def _governor_backend_dir() -> str:
     return os.environ.get("GOVERNANCE_BACKEND_DIR", DEFAULT_GOVERNOR_BACKEND)
 
 
-def _governor_is_healthy() -> bool:
-    if requests is None:
-        return False
+def _http_json(
+    method: str,
+    url: str,
+    payload: Optional[dict[str, Any]] = None,
+    timeout: float = 2,
+) -> tuple[int, dict[str, Any]]:
+    data = None
+    headers = {"Accept": "application/json"}
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        response = requests.get(f"{_governor_url()}/health", timeout=2)
-        return response.status_code == 200
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            status = int(response.status)
+            raw = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        status = int(exc.code)
+        raw = exc.read().decode("utf-8", errors="replace")
+    try:
+        body = json.loads(raw) if raw else {}
+    except ValueError:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    return status, body
+
+
+def _governor_is_healthy() -> bool:
+    try:
+        status, _body = _http_json("GET", f"{_governor_url()}/health", timeout=2)
+        return status == 200
     except Exception:
         return False
 
@@ -84,15 +108,10 @@ def ensure_governor_running(wait_seconds: int = 45) -> bool:
     return False
 
 
-def _parse_response(response: "requests.Response") -> dict[str, Any]:
-    try:
-        body = response.json()
-    except ValueError:
-        body = {}
-
+def _parse_response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
     return {
-        "success": response.status_code == 200 and body.get("success", True),
-        "allowed": body.get("allowed", response.status_code == 200),
+        "success": status_code == 200 and body.get("success", True),
+        "allowed": body.get("allowed", status_code == 200),
         "violation": body.get("violation"),
         "violatedPolicy": body.get("violatedPolicy"),
         "escalationId": body.get("escalationId"),
@@ -107,13 +126,6 @@ def log_success(
     confidence: Optional[float] = None,
 ) -> dict[str, Any]:
     """Log activity and return governor blocking decision."""
-    if requests is None:
-        return {
-            "success": False,
-            "allowed": False,
-            "violation": "requests package not installed",
-        }
-
     if not ensure_governor_running():
         return {
             "success": False,
@@ -131,12 +143,13 @@ def log_success(
     }
 
     try:
-        response = requests.post(
+        status, body = _http_json(
+            "POST",
             f"{_governor_url()}/agents/{agent_id}/activity",
-            json=activity,
+            payload=activity,
             timeout=_timeout_seconds(),
         )
-        return _parse_response(response)
+        return _parse_response(status, body)
     except Exception as exc:
         print(f"[GovernanceLogger] Failed to log activity for {agent_id}: {exc}")
         return {
@@ -148,9 +161,6 @@ def log_success(
 
 def log_error(agent_id: str, error: str) -> dict[str, Any]:
     """Log an agent error to the governance governor."""
-    if requests is None:
-        return {"success": False, "allowed": False, "violation": "requests package not installed"}
-
     if not ensure_governor_running():
         return {
             "success": False,
@@ -167,12 +177,13 @@ def log_error(agent_id: str, error: str) -> dict[str, Any]:
     }
 
     try:
-        response = requests.post(
+        status, body = _http_json(
+            "POST",
             f"{_governor_url()}/agents/{agent_id}/activity",
-            json=activity,
+            payload=activity,
             timeout=_timeout_seconds(),
         )
-        return _parse_response(response)
+        return _parse_response(status, body)
     except Exception as exc:
         print(f"[GovernanceLogger] Failed to log error for {agent_id}: {exc}")
         return {
