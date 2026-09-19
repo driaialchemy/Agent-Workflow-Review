@@ -1,8 +1,8 @@
 """
 Agent Review Board Streamlit app.
 
-Runs a deterministic local baseline and, when configured, optional LLM reviewers
-from OpenAI, Anthropic, and Google with a local arbiter.
+Runs a deterministic local baseline through risk/value agents and
+decision_synthesizer.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Any
 
 import streamlit as st
 
-from agents import decision_synthesizer, llm_review, risk_agent, value_agent
+from agents import decision_synthesizer, risk_agent, value_agent
 
 BASE_DIR = os.path.dirname(__file__)
 AUDIT_LOG_PATH = os.path.join(BASE_DIR, "outputs", "audit_log.json")
@@ -82,76 +82,19 @@ def render_decision(title: str, decision_result: dict[str, Any]) -> None:
     st.info(decision_result["rationale"])
 
 
-def render_list(label: str, values: list[str]) -> None:
-    if values:
-        st.write(f"**{label}**")
-        for value in values:
-            st.write(f"- {value}")
-
-
-def render_llm_panel(package: dict[str, Any]) -> None:
-    reviews = package.get("reviews", [])
-    errors = package.get("errors", [])
-
-    if errors:
-        with st.expander("Provider errors"):
-            for error in errors:
-                st.warning(error)
-
-    if not reviews:
-        st.info("No LLM reviews completed. The arbiter retained the deterministic baseline.")
-        render_decision("Arbiter Recommendation", package["arbiter"])
-        return
-
-    st.markdown("### LLM Reviewer Panel")
-    for review in reviews:
-        with st.expander(
-            f"{review['provider_name']} ({review['model']}) - {review['decision']}",
-            expanded=False,
-        ):
-            columns = st.columns(3)
-            columns[0].metric("Risk", f"{review['risk_score']:.1f} / 10")
-            columns[1].metric("Value", f"{review['value_score']:.1f} / 10")
-            columns[2].metric("Confidence", f"{int(review['confidence'] * 100)}%")
-            st.write(review["rationale"])
-            render_list("Top risks", review.get("top_risks", []))
-            render_list("Top values", review.get("top_values", []))
-            render_list("Required changes", review.get("required_changes", []))
-
-    st.divider()
-    render_decision("Arbiter Recommendation", package["arbiter"])
-    render_list("Arbiter required changes", package["arbiter"].get("required_changes", []))
-
-
 st.set_page_config(
     page_title="Agent Review Board",
     layout="wide",
 )
 
 st.title("Agent Review Board")
-st.caption(
-    "Deterministic local scoring with optional OpenAI, Anthropic, and Google LLM reviewers."
-)
+st.caption("Deterministic local scoring through the decision synthesizer.")
 
 with st.sidebar:
     st.header("Sample Cases")
     samples = load_sample_cases()
     sample_labels = ["-- select a sample --"] + [sample["title"] for sample in samples]
     selected_sample = st.selectbox("Load a sample proposal:", sample_labels)
-
-    st.divider()
-    st.header("LLM Review")
-    providers = llm_review.available_providers()
-    use_llm_review = st.checkbox(
-        "Use LLM reviewers (API calls)",
-        value=False,
-        disabled=not providers,
-    )
-    if providers:
-        configured = ", ".join(f"{provider['name']} ({provider['model']})" for provider in providers)
-        st.caption(f"Configured: {configured}")
-    else:
-        st.caption("No provider API keys found in the environment.")
 
     st.divider()
     st.header("Audit Log")
@@ -190,16 +133,10 @@ if run_review and proposal_text.strip():
         else:
             synthesis = decision_synthesizer.synthesize(risk_result, value_result)
 
-    llm_package = None
     final_result = synthesis
-    decision_source = "deterministic_baseline"
-    skip_review_queue = decision_synthesizer.should_auto_clear(risk_result)
-
-    if use_llm_review and not skip_review_queue:
-        with st.spinner("Running LLM reviewers..."):
-            llm_package = llm_review.review_with_llms(proposal_text, synthesis)
-        final_result = llm_package["arbiter"]
-        decision_source = "llm_arbiter" if llm_package["reviews"] else "deterministic_after_llm_review"
+    decision_source = (
+        "auto_logged" if decision_synthesizer.should_auto_clear(risk_result) else "deterministic_baseline"
+    )
 
     st.divider()
     st.subheader("2. Agent Results")
@@ -224,11 +161,6 @@ if run_review and proposal_text.strip():
             + ", ".join(dimension.replace("_", " ").title() for dimension in synthesis["high_value_dimensions"])
         )
 
-    if llm_package is not None:
-        st.divider()
-        st.subheader("4. LLM Review And Arbiter")
-        render_llm_panel(llm_package)
-
     audit_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "proposal_excerpt": proposal_text[:200],
@@ -239,7 +171,6 @@ if run_review and proposal_text.strip():
         "rationale": final_result["rationale"],
         "decision_source": decision_source,
         "deterministic_baseline": synthesis,
-        "llm_review": llm_package,
     }
     append_audit_log(audit_entry)
     from governance_logger import require_approval
